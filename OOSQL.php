@@ -28,24 +28,28 @@ class OOSQL extends \PDO {
         $this->parseSchemas();
     }
     
-    public function list(string $class, bool $autload = false):array {
+    public function list(string $class):array {
         $stmt = $this->query("SELECT * FROM $class");
         $keychain = $this->getKeys();
         $items = $stmt->fetchAll(\PDO::FETCH_ASSOC);
         $list = [];
         foreach ($items as $item) {
             $key = $item[$keychain->{$class}->primary];
-            $list[$key] = new Doppel($this, $class, $key, $autload);
+            $list[$key] = new Doppel($this, $class, $key, true, false);
         }
         return $list;
     }
     
-    public function new(string $class):Doppel {
-        return new Doppel($this, $class);
+    public function new(string $class, array $properties = []):Doppel {
+        $obj = new Doppel($this, $class);
+        foreach ($properties as $property=>$value) {
+            $obj->{$property} = $value;
+        }
+        return $obj;
     }
     
     public function get(string $class, $id):Doppel {
-        return new Doppel($this, $class, $id);
+        return new Doppel($this, $class, $id, true, true);
     }
     
     private function mapValuesToSchema(array $values, string $class) {
@@ -124,3 +128,5 @@ class OOSQL extends \PDO {
     }
     
 }
+
+print_r((new OOSQL)->get('hero', 4));

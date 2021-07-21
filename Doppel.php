@@ -10,7 +10,8 @@ class Doppel {
         private OOSQL $__conn,
         public string $__class,
         public ?string $__id = null,
-        bool $autoload = true
+        bool $autoload = false,
+        bool $load_downstreams = false
     ) {
         $schema = $__conn->parseSchema($__class);
         if ($autoload) {
@@ -18,10 +19,10 @@ class Doppel {
                 $this->{$property} = $default;
             }
         }
-        $__id && $this->load($autoload);
+        $autoload && $__id && $this->load($load_downstreams);
     }
     
-    public function load(bool $continue = false):bool {
+    public function load(bool $load_downstreams = false):bool {
         $keychain = $this->__conn->getKeys();
         $primary_key = $keychain->{$this->__class}->primary;
         try {
@@ -41,14 +42,14 @@ class Doppel {
             }
             foreach ($keychain->{$this->__class}->upstream as $upstream) {
                 if ($property == $upstream->key) {
-                    $this->{$upstream->class} = new Doppel($this->__conn, $upstream->class, $value, false);
-                    $continue && $this->{$upstream->class}->load();
+                    $this->{$upstream->class} = new Doppel($this->__conn, $upstream->class, $value);
+                    $this->{$upstream->class}->load(false);
                     continue 2;
                 }
             }
             $this->{$property} = $value;
         }
-        if ($continue) {
+        if ($load_downstreams) {
             foreach ($keychain->{$this->__class}->downstream as $downstream) {
                 $stmt = $this->__conn->prepare(sprintf(
                         'SELECT * FROM %s WHERE %s = ?',
@@ -63,8 +64,7 @@ class Doppel {
                         $downstream_object = new Doppel(
                                 $this->__conn,
                                 $downstream->class,
-                                $downstream_object[$keychain->{$downstream->class}->primary],
-                                false
+                                $downstream_object[$keychain->{$downstream->class}->primary]
                             );
                     });
                 } else {
@@ -83,8 +83,7 @@ class Doppel {
                             $coven->{$sister->class} = new Doppel(
                                     $this->__conn,
                                     $sister->class,
-                                    $downstream_object[$sister->key],
-                                    false
+                                    $downstream_object[$sister->key]
                                 );
                         }
                         $downstream_object = $coven;
